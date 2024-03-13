@@ -1,8 +1,99 @@
-# Speech-Emotion-Recognition
-""" The idea behind this project is to build a machine learning model that could detect emotions from how we converse with each other.
-Emotion detection has become one of the biggest marketing strategies, the mood of the consumer plays an important role. So to detect the current emotion of the person and suggest to him the apt product or help him accordingly, will increase the demand of the product or the company.
+import pandas as pd
+import numpy as np
 
-Emotion recognition from speech signals is an important but challenging component of Human-Computer Interaction (HCI). In the literature of speech emotion recognition (SER), many techniques have been utilized to extract emotions from signals, including many well-established speech analysis and classification techniques. The emotion recognition and the classifiers are used to differentiate emotions such as happiness, surprise, anger, neutral state, sadness, etc. The dataset for the speech emotion recognition system is the speech samples and the characteristics are extracted from these speech samples using the LIBROSA package. The classification performance is based on extracted characteristics. Finally we can determine the emotion of the speech signal to build a model using an MLPClassifier. This will be able to recognize emotion from sound files. We will load the data, extract features from it, then split the dataset into training and testing sets. Then, we’ll initialize an MLPClassifier and train the model. Finally, we’ll be able to calculate the accuracy of our model.
+import sys
+import os
 
-Speech Emotion Recognition is a current research topic because of its wide range of applications and it has become a challenge in the field of speech processing too. In this project, we will be carrying out a brief study on Speech Emotion Analysis along with Emotion Recognition. This project includes the study of different types of emotions, features to identify those emotions and various classifiers to classify them properly.
-"""
+import glob
+
+pip install librosa
+
+import librosa
+
+import soundfile
+
+import pickle
+
+from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import accuracy_score
+
+def extract_feature(file_name, mfcc, chroma, mel):
+    with soundfile.SoundFile(file_name) as sound_file:
+        X = sound_file.read(dtype="float32")
+        sample_rate=sound_file.samplerate
+        if chroma:
+            stft=np.abs(librosa.stft(X))
+        result=np.array([])
+        if mfcc:
+            mfccs=np.mean(librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40).T, axis=0)
+            result=np.hstack((result, mfccs))
+        if chroma:
+            chroma=np.mean(librosa.feature.chroma_stft(S=stft, sr=sample_rate).T,axis=0)
+            result=np.hstack((result, chroma))
+        if mel:
+            
+            mel= np.mean(librosa.feature.melspectrogram(y=X, sr=sample_rate).T, axis=0)
+            result=np.hstack((result, mel))
+    return result        
+
+emotions={
+  '01':'neutral',
+  '02':'calm',
+  '03':'happy',
+  '04':'sad',
+  '05':'angry',
+  '06':'fearful',
+  '07':'disgust',
+  '08':'surprised'
+}
+# Emotions to observe
+observed_emotions=['calm', 'happy', 'fearful', 'disgust']
+
+
+#- Load the data and extract features for each sound file
+def load_data(test_size=0.2):
+    
+    x,y=[],[]
+    for file in glob.glob(r"C:\Users\sushm\Documents\speech-emotion-recognition-ravdess-data\Actor_*\\*.wav"):
+        
+        file_name=os.path.basename(file)
+        emotion=emotions[file_name.split("-")[2]]
+        if emotion not in observed_emotions:
+            continue
+        feature=extract_feature(file, mfcc=True, chroma=True, mel=True)
+        x.append(feature)
+        y.append(emotion)
+    return train_test_split(np.array(x), y, test_size=test_size, random_state=9)
+
+#Split the dataset
+x_train,x_test,y_train,y_test=load_data(test_size=0.25)
+
+#Get the shape of the training and testing datasets
+print((x_train.shape[0], x_test.shape[0]))
+
+
+#Get the number of features extracted 
+print(f'Features extracted: {x_train.shape[1]}')
+
+ #Initialize the Multi Layer Perceptron Classifier
+model=MLPClassifier(alpha=0.01, batch_size=256, epsilon=1e-08, hidden_layer_sizes=(300,), learning_rate='adaptive', max_iter=500)
+
+print(model)
+
+
+
+# Train the model
+model.fit(x_train,y_train)
+
+#Predict for the test set
+y_pred=model.predict(x_test)
+
+#Calculate the accuracy of our model
+accuracy=accuracy_score(y_true=y_test, y_pred=y_pred)
+
+
+print("Accuracy: {:.2f}%".format(accuracy*100))
+
+
+
